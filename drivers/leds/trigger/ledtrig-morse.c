@@ -48,7 +48,7 @@ struct morse_trig_data {
 	unsigned int phase;
 	unsigned int period;
 	struct timer_list timer;
-	unsigned int speed;
+	unsigned int slower;
 };
 
 void led_morse_function(unsigned long data) {
@@ -132,8 +132,8 @@ void led_morse_function(unsigned long data) {
 				delay = msecs_to_jiffies(300);
 			}
 			
-			//brightness = 0;
-			if (!morse_data->invert)
+			brightness = 0;
+			//if (!morse_data->slower)
 				brightness = led_cdev->blink_brightness;
 #if DEBUG
 			printk("changing phase to 1, incrementing sym_idx\n");
@@ -149,8 +149,8 @@ void led_morse_function(unsigned long data) {
 #endif
 		phase = 0;
         //this is important
-		if (morse_data->invert)
-			brightness = led_cdev->blink_brightness;
+		//if (morse_data->slower)
+		//	brightness = led_cdev->blink_brightness;
 		break;
 		/* LED should be off
 		 * set brightness and delay for the appropriate amount of time */
@@ -158,19 +158,25 @@ void led_morse_function(unsigned long data) {
 	/* call the brightness function */
 	//return delay;
 	led_set_brightness_nosleep(led_cdev, brightness);
-	mod_timer(&morse_data->timer, jiffies + delay);
+    if (morse_data->slower)
+    {
+        mod_timer(&morse_data->timer, jiffies + delay + 200);
+    }
+    else{
+        mod_timer(&morse_data->timer, jiffies + delay);
+    }
 }
 
-static ssize_t led_speed_show(struct device *dev,
+static ssize_t led_slower_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	struct morse_trig_data *morse_data = led_cdev->trigger_data;
 
-	return sprintf(buf, "%u\n", morse_data->invert);
+	return sprintf(buf, "%u\n", morse_data->slower);
 }
 
-static ssize_t led_speed_store(struct device *dev,
+static ssize_t led_slower_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
@@ -182,12 +188,12 @@ static ssize_t led_speed_store(struct device *dev,
 	if (ret)
 		return ret;
 //figure !!state out
-	morse_data->speed = !!state;
+	morse_data->slower = !!state;
 
 	return size;
 }
 
-static DEVICE_ATTR(speed, 0644, led_speed_show, led_speed_store);
+static DEVICE_ATTR(slower, 0644, led_slower_show, led_slower_store);
 
 static void morse_trig_activate(struct led_classdev *led_cdev)
 {
@@ -199,7 +205,7 @@ static void morse_trig_activate(struct led_classdev *led_cdev)
 		return;
 
 	led_cdev->trigger_data = morse_data;
-	rc = device_create_file(led_cdev->dev, &dev_attr_invert);
+	rc = device_create_file(led_cdev->dev, &dev_attr_slower);
 	if (rc) {
 		kfree(led_cdev->trigger_data);
 		return;
@@ -221,7 +227,7 @@ static void morse_trig_deactivate(struct led_classdev *led_cdev)
 
 	if (led_cdev->activated) {
 		del_timer_sync(&morse_data->timer);
-		device_remove_file(led_cdev->dev, &dev_attr_invert);
+		device_remove_file(led_cdev->dev, &dev_attr_slower);
 		kfree(morse_data);
 		clear_bit(LED_BLINK_SW, &led_cdev->work_flags);
 		led_cdev->activated = false;
