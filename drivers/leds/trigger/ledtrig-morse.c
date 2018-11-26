@@ -287,14 +287,14 @@ static int my_close(struct inode *i, struct file *f)
     return 0;
 }
 
-static ssize_t dummy_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
+static ssize_t morse_dev_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 {
     printk("CS444 Dummy driver read\r\n");
     snprintf(buf, size, "Hey there, I'm a dummy!\r\n");
     return strlen(buf);
 }
 
-static ssize_t dummy_write(struct file *file, const char __user *buf, size_t size, loff_t *ppos)
+static ssize_t morse_dev_write(struct file *file, const char __user *buf, size_t size, loff_t *ppos)
 {
   	//if msg not null:
   	//	free msg
@@ -330,12 +330,12 @@ static ssize_t dummy_write(struct file *file, const char __user *buf, size_t siz
     return size;
 }
 
-static struct file_operations dummy_fops =
+static struct file_operations morse_dev_fops =
 {
     .owner = THIS_MODULE,
     .open = my_open,
-    .read = dummy_read,
-    .write = dummy_write,
+    .read = morse_dev_read,
+    .write = morse_dev_write,
     .release = my_close
 };
 
@@ -385,7 +385,7 @@ static void morse_trig_activate(struct led_classdev *led_cdev)
 
 	/* BEGIN DUMMY CODE HERE*/
 
-	/* code from dummy_init */
+	/* code from morse_dev_init */
 
     int ret;
     struct device *dev_ret;
@@ -396,21 +396,21 @@ static void morse_trig_activate(struct led_classdev *led_cdev)
         return ret;
     }
  
-    cdev_init(&c_dev, &dummy_fops);
+    cdev_init(&c_dev, &morse_dev_fops);
  
     if ((ret = cdev_add(&c_dev, dev, MINOR_CNT)) < 0)
     {
         return ret;
     }
      
-    // Allocate the /dev device (/dev/cs444_dummy)
+    // Allocate the /dev device (/dev/morse)
     if (IS_ERR(cl = class_create(THIS_MODULE, "char")))
     {
         cdev_del(&c_dev);
         unregister_chrdev_region(dev, MINOR_CNT);
         return PTR_ERR(cl);
     }
-    if (IS_ERR(dev_ret = device_create(cl, NULL, dev, NULL, "cs444_dummy")))
+    if (IS_ERR(dev_ret = device_create(cl, NULL, dev, NULL, "morse")))
     {
         class_destroy(cl);
         cdev_del(&c_dev);
@@ -440,7 +440,7 @@ static void morse_trig_deactivate(struct led_classdev *led_cdev)
 
 	/* BEGIN DUMM CODE HERE */
 
-	/* Code from dummy_exit */
+	/* Code from morse_dev_exit */
 
     device_destroy(cl, dev);
     class_destroy(cl);
